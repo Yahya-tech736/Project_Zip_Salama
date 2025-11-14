@@ -1,0 +1,400 @@
+---
+title: "Global Perspectives on AI Integration: Usage, Acceptance, and the Imperative for Regulation"
+output: html_notebook
+author: "Yahya Salama"
+editor_options: 
+  chunk_output_type: inline
+---
+# Libraries
+```{r}
+library(tidyverse)
+library(stringr)
+library(purrr)
+library(dplyr)
+library(readr)
+library(tibble)
+library(ggplot2)
+library(maps)
+library(forcats)
+library(patchwork)
+library(ggrepel)
+```
+# Summary: 
+
+- This project's primary objective was to determine the true extent of AI reliance in everyday life globally. This includes public perspectives on its integration, acceptance, and future impact. The analysis used a master data set created by merging and standardizing 16 separate quantitative survey data files to create respondent percentages that had to do with AI policy, usage, and opinions data. The methodology focused on visual exploratory data analysis using bar graphs to simplify complex data and convey findings.
+
+- The overall findings indicate that AI is not currently being overused, but is rather accepted and integrated into daily life. This is as there is significant global public support for its use. Along with the strong acceptance, respondents also expressed a strong desire for the establishment of regulatory frameworks concerning AI and data transparency. This then highlights the need to address the risk of cognitive atrophy from potential future over-reliance. The project's secondary objective is investigating strategies to maintain personal autonomy in an AI age. This objective can be addressed through regulatory advancements and societal implementations that are focused on promoting critical thinking and digital literacy.
+
+# Purpose:
+
+- The primary objective is to find and see the extent of this integration into the lives of people all around the globe. This is to understand their acceptance, their perspectives on the topic, the use of everyday citizens, their integration into industries such as the medical or industrial fields as well as future projections of how LLMs might impact us further. The secondary objective is to spread awareness and educate people against such an
+over reliance as well as promote strategies to keep the understanding that it is a tool and nothing more than its currently made out to be as.
+
+```{r}
+csv1 <- read.csv("fig_8.1.1.csv")
+csv2 <- read.csv("fig_8.1.2.csv")
+csv3 <- read.csv("fig_8.1.3.csv")
+csv4 <- read.csv("fig_8.1.4.csv")
+csv5 <- read.csv("fig_8.1.5.csv")
+csv6 <- read.csv("fig_8.1.6.csv")
+csv7 <- read.csv("fig_8.1.7.csv")
+csv8 <- read.csv("fig_8.1.8.csv")
+csv9 <- read.csv("fig_8.1.9.csv")
+csv10 <- read.csv("fig_8.1.10.csv")
+csv11 <- read.csv("fig_8.1.11.csv")
+csv12 <- read.csv("fig_8.1.12.csv")
+csv13 <- read.csv("fig_8.2.1.csv")
+csv14 <- read.csv("fig_8.2.2.csv")
+csv15 <- read.csv("fig_8.2.3.csv")
+csv16 <- read.csv("fig_8.2.4.csv")
+```
+```{r}
+primitive_df <- paste0("csv", 1:16)
+combined_data <- mget(primitive_df)
+
+standardize_columns <- function(df) {
+df %>%
+mutate(
+Year = as.character("Year")
+)
+}
+standardized_data <- purrr::map(combined_data, standardize_columns)
+master_copy_survey_data1 <- bind_rows(standardized_data)
+
+gluing_together <- function(df, wave_id) {
+df %>%
+  standardize_columns() %>%
+  mutate(Respondent_ID = as.character(row_number())) %>%
+  rename_with(~ paste0(., "_csv", wave_id), .cols = -Respondent_ID)
+}
+
+glued_data <- purrr::map2(combined_data, 1:16, gluing_together)
+master_copy_survey_data2 <- glued_data[[1]]
+
+for (i in 2:length(glued_data)) {
+  master_copy_survey_data2 <- master_copy_survey_data2 %>%
+  full_join(glued_data[[i]], by = "Respondent_ID")
+}
+
+master_copy_survey_data3 <- master_copy_survey_data2 %>%
+  select(-starts_with("Year_", ignore.case = TRUE))
+
+master_copy_survey_data4 <- master_copy_survey_data3 %>%
+  select(-Respondent_ID)
+
+master_copy_survey_data4
+```
+```{r}
+dim(master_copy_survey_data4)
+```
+# Dictionary:
+
+```{r}
+dictionary <- master_copy_survey_data2 %>%
+  summarise(across(.fns = typeof)) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Variable_Name",
+    values_to = "Data_Type"
+  )
+dictionary
+```
+
+# Data:
+
+- My data set is a collection of 16 different files of quantitative survey data all merged into a single file. In this singular file you can find columns describing percentages of respondents in their agreement or disagreement to different sets of statements. All of the these columns are split up by wave ids
+that pertains to each survey data file to make there is no confusion of data from file to file. Some of the aforementioned statements reference either opinionated statements that respondents can either disagree or agree to, experience related statements with LLMs, or political and policy related statements. All of the numerical data is in percentages.
+
+- I was fortunate to find that the data has very few naturally occurring N/A or null variables. As the data frame is an amalgamation of all the survey files put together; all the survey data was not uniform in its sizes and questions which lead to the data frame including lots of N/A values as one survey file contains more data than another. When using my data, i was able to avoid the N/A variables and not have it impact the data exploratory analysis section. However, the few N/A values that were occurring from the survey data files themselves were of no problem to solve. In the data you can see that there are agreement and disagreement categories as well as respondents who don't agree or disagree. In one case I had to combine the values of respondents who agreed with the vales of respondents who remained neutral to find the difference or the respondents who disagreed to the statement. I can then take this value and apply it to the missing value in the survey data thereby completing my data.
+
+- Initially when combining my data i decided to force my data together by pasting all 16 files together which led to a very tall data frame with 16 columns and 1,624 rows. I then defined a function named standardize_columns which is then immediately applied to all data frames in the list. This function adds a new column named Year with the static character value "Year" to every data frame. All of these standardized data frames are then vertically stacked using bind_rows into a single large data frame called master_copy_survey_data1. Next, the second function which I called gluing_together is defined to prepare the data for horizontal merging. This function takes a data frame and a wave id from files 1 to 16 and standardizes the columns using the aforementioned standardize columns function. The respondent ids are created for each row based on its row number. This then leads to all the other renames of the other columns by adding the correct wave id to the correct survey data set to make sure all the columns stay unique. This function is then used on the original 16 survey data files using the map2 function from the purrr library, which creates a new list of data frames called glued_data. This new data frame allows for initialization of master_copy_survey_data2 with the first element of glued_data. It then uses a for loop to use the full_join function from the dplyr library to join the remaining 15 data frames onto master_copy_survey_data2. This resulted in an extremely wide data frame containing all columns from all 16 survey data files. Master_copy_survey_data3 is then created by selecting only columns that start with "Year_" and master_copy_survey_data4 is created by removing the Respondent_ID column from that final selection of columns from master_copy_survey_data3. This results in a data frame exclusively focused on the year columns across the merged survey waves. This then is the final data frame that can be viewed above that has 264 rows and 44 columns; a much more manageable and understandable data frame compared to the original 16 columns and 1,624 rows.
+
+# Exploratory Data Analysis
+
+```{r}
+demographic_bar_graph_AI_use <- csv8 %>% 
+  rename(
+    Demographic_Group = "Demographic.group",
+    Year = Year,
+    Percent_Response = "X..of.respondents"
+  ) %>%
+  mutate(
+    Year = factor(Year),
+    Percent_Value = parse_number(Percent_Response) / 100 
+  ) %>%
+  filter(!is.na(Percent_Value))
+demographic_bar_graph_AI_use_graph <- ggplot(demographic_bar_graph_AI_use, 
+                                             aes(x = Demographic_Group,
+                                                 y = Percent_Value,
+                                                 fill = Year)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_text(
+    aes(label = scales::percent(Percent_Value, accuracy = 1)),
+    position = position_dodge(width = 0.8),
+    vjust = -0.5,
+    size = 3.5,
+    fontface = "bold"
+  ) +
+  scale_fill_manual(
+    name = "Survey Year",
+    values = c(
+      "2023" = "#FCB062",  
+      "2024" = "#8DA4C8"  
+    )
+  ) +
+  scale_y_continuous(
+    labels = scales::percent, 
+    limits = c(0, max(demographic_bar_graph_AI_use$Percent_Value) * 1.1)
+  ) +
+  labs(
+    title = "AI use by Demographic Group",
+    x = "Demographic Group",
+    y = "Percentage of Respondents",
+    fill = "Survey Year"
+  )
+demographic_bar_graph_AI_use_graph
+```
+
+- This graph describes 4 different generations and their use of AIs in the years of 2023 and 2024. This graph shows a unanimous increase in AI use across 2023 and 2024 for all 4 generations. The consistent growth across generations means that AI has become less of a niche tool and more of a mainstream media thats being accessed by a wide spectrum of age groups. Generation Z has the highest usage which shows they are integrating these tools into their lives much more than previous generations. Millenials and baby boomers have the largest jumps showing that more of these tools are being used and integrated into their day to day lives as they have the largest adoption changes. This means that companies should do AI integration training for older workers like those in the generation X and baby boomer generations whilst making AI products that would target millenials and generation z.
+
+```{r}
+people_feeling <- csv4 %>%
+  mutate(
+    Percentage_Numeric = as.numeric(gsub("%", "", X..of.respondents.that..Agree.)),
+    Country = factor(Country),
+    Statement_Short = case_when(
+      grepl("excited", Statement, ignore.case = TRUE) ~ "Excited",
+      grepl("nervous", Statement, ignore.case = TRUE) ~ "Nervous",
+      TRUE ~ "Other" 
+    )
+  ) %>%
+  ggplot(aes(
+    x = Country,
+    y = Percentage_Numeric,
+    fill = Statement_Short
+  )) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7, color = "black", alpha = 0.8) +
+  labs(
+    title = "How People Feel About AI as a Whole: Excitement vs. Nervousness",
+    x = "Country",
+    y = "Percentages of Respondents",
+    fill = "Sentiment"
+  ) +
+  scale_y_continuous(limits = c(0, 100), expand = expansion(mult = c(0, 0.05))) +
+  scale_fill_manual(
+    values = c("Excited" = "#FCB062", 
+               "Nervous" = "#8DA4C8")
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.margin = unit(c(1, 1, 1, 1), "cm"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+people_feeling
+```
+
+- This bar graph compares two different centiments regarding how the people residing in their respective countries feel about AI as a topic. We see their nervous groups in red and their excitement groups in blue. This image shows how both excitement and nervousness are both existent at once in a country in their overall views of AI. In most nations they are more excited the nervous. Most notably countries like China and Malaysia are more excited about AI. This is a result of national policies supporting its use and development as well as industrial changes in those countries. However, there are outliers like the United States, Australia or Great Britan.Something these 3 countries have in common is their first world western ideologies which may be influencing their feelings as these countries typically have the highest uncensored social media usage. We can infer that in these countries there is alot of misinformation as well as disinformation especially in comparison to a first world non-western ideology country like Turkey. 
+
+```{r}
+master_colors_list <- c("Very likely" = "#6ECCA3", "Somewhat likely" = "#FCB062", "Not very likely" = "#8DA4C8", "Not likely at all" = "#E57EAB", 
+                        "Don't know" = "gray")
+
+prepare_pie_data = function(data_filtered) {
+  data_filtered %>%
+    mutate(Percentage_Numeric = as.numeric(gsub(" |%", "", X..of.respondents)),
+           clean_category = Response,
+           # Ensure "Don't know" is part of the factor levels
+           Response_Label_Ordered = factor(clean_category,
+                                           levels = names(master_colors_list))) %>%
+    filter(!is.na(Percentage_Numeric)) %>%
+    mutate(Percentage_Numeric = Percentage_Numeric / sum(Percentage_Numeric) * 100)
+}
+change_data <- csv7 %>%
+  filter(!is.na(Response)) %>%
+  filter(grepl("change how you do your current job", Global.opinions.on.the.impact.of.AI.on.current.jobs, ignore.case = TRUE)) %>%
+  prepare_pie_data() %>%
+  mutate(Plot_Group = "Improving Current Jobs")
+
+replace_data <- csv7 %>%
+  filter(!is.na(Response)) %>%
+  filter(grepl("replace your current job", Global.opinions.on.the.impact.of.AI.on.current.jobs, ignore.case = TRUE)) %>%
+  prepare_pie_data() %>%
+  mutate(Plot_Group = "Replacing Current Jobs")
+combined_data <- bind_rows(change_data, replace_data)
+combined_data <- combined_data %>%
+  mutate(Response_Label_Ordered = forcats::fct_explicit_na(Response_Label_Ordered, na_level = "Don't know"))
+
+grouped_bar_plot <- combined_data %>%
+  ggplot(aes(x = Response_Label_Ordered, y = Percentage_Numeric, fill = Response_Label_Ordered)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black", width = 0.7) +
+  facet_wrap(~ Plot_Group, scales = "free_x", ncol = 2) +
+  scale_fill_manual(values = master_colors_list) +
+  scale_y_continuous(limits = c(0, max(combined_data$Percentage_Numeric) + 5), expand = c(0, 0)) +
+  labs(title = "Respondent Opinions on AI and Their Job",
+       x = "Agreement Level",
+       y = "Percentage (%)",
+       fill = "Agreement Level") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+        legend.position = "right",
+        strip.text = element_text(face = "bold", size = 12))
+grouped_bar_plot
+```
+
+- This graph shows averaged percentages of survey data about what percentage of respondents believed that there current jobs will either be replaced or improved by AI. A significant majority of 60% are optimistic that AI will improve their current job (39% Very likely, 21% Somewhat likely). This suggests that AI is seen as a good tool for helping them with their jobs. On the other hand, the threat of job replacement is not a majority concern, with 58% believing it is either Not very likely (33%) or Not likely at all (25%). This indicates that there is a strong perception that the respondents jobs will not be replaced. However, the fact that a sizable 34% still view job replacement as likely means the perceived threat feels very real and could impact a large part of the workforce. The highest single agreement level is the 39% who expect improvement to their jobs. This makes the combined optimism for improvement (39%) nearly double the likelihood of replacement (23%). This overall pattern suggests that most respondents believe AI will improve their jobs and not erase them from it.
+
+```{r}
+Society_impacts <-csv9 %>%
+ filter(!is.na(X..of.respondents)) %>%
+  mutate(
+    Percentage_Numeric = as.numeric(gsub("%", "", X..of.respondents)),
+    Statement = gsub("\\s*\\([^)]*\\)", "", Statement),
+    Country = Country
+  ) %>%
+  filter(Country != "Global") %>%
+  mutate(
+    Statement = fct_reorder(Statement, Percentage_Numeric, .fun = mean),
+    Country = fct_rev(fct_inorder(Country))
+  ) %>%
+  group_by(Country) %>% 
+  mutate(country_id = cur_group_id()) %>% 
+  ungroup() %>%
+  filter(country_id > max(country_id) / 2) %>% 
+  select(-country_id) %>% 
+  ggplot(aes(x = Country, y = Percentage_Numeric, fill = Statement)) +
+  geom_col(position = position_dodge(width = 0.6), alpha = 0.9) +
+  coord_flip() +
+  labs(title = "Public Opinion on AI's Impact", x = "Country", y = "Percentage of Respondents", fill = "Aspect of Life Impacted") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  theme_minimal() +
+  theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 10, unit = "pt"), plot.title = element_text(hjust = 0.5, face = "bold", size = 18), 
+    plot.subtitle = element_text(hjust = 0.5, size = 14), axis.title.x = element_text(size = 14), axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(size = 10), axis.text.y = element_text(size = 12, vjust = 0.5), legend.position = "bottom",
+    legend.direction = "horizontal", legend.title = element_text(size = 12, face = "bold"), legend.text = element_text(size = 10), 
+    legend.box = "horizontal", legend.justification = "center", legend.box.margin = margin(t = 20, unit = "pt")) +
+  guides(fill = guide_legend(ncol = 3))
+Society_impacts
+```
+
+```{r}
+Society_impacts_cont <- csv9 %>%
+  filter(!is.na(X..of.respondents)) %>%
+  mutate(
+    Percentage_Numeric = as.numeric(gsub("%", "", X..of.respondents)),
+    Statement = gsub("\\s*\\([^)]*\\)", "", Statement),
+    Country = Country
+  ) %>%
+  filter(Country != "Global") %>%
+  mutate(
+    Statement = fct_reorder(Statement, Percentage_Numeric, .fun = mean),
+    Country = fct_rev(fct_inorder(Country))
+  ) %>%
+  group_by(Country) %>% 
+  mutate(country_id = cur_group_id()) %>% 
+  ungroup() %>%
+  filter(country_id <= max(country_id) / 2) %>%
+  select(-country_id) %>%
+
+  ggplot(aes(x = Country, y = Percentage_Numeric, fill = Statement)) +
+  geom_col(position = position_dodge(width = 0.6), alpha = 0.9) +
+  coord_flip() +
+  
+  labs(title = "Public Opinion on AI's Impact Cont.", x = "Country", y = "Percentage of Respondents", fill = "Aspect of Life Impacted") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  theme_minimal() +
+  theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 10, unit = "pt"), plot.title = element_text(hjust = 0.5, face = "bold", size = 18), 
+    plot.subtitle = element_text(hjust = 0.5, size = 14), axis.title.x = element_text(size = 14), axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(size = 10), axis.text.y = element_text(size = 12, vjust = 0.5), legend.position = "bottom",
+    legend.direction = "horizontal", legend.title = element_text(size = 12, face = "bold"), legend.text = element_text(size = 10), 
+    legend.box = "horizontal", legend.justification = "center", legend.box.margin = margin(t = 20, unit = "pt")) +
+  guides(fill = guide_legend(ncol = 3))
+Society_impacts_cont
+```
+
+- The graphs above show what the average of percentages of respondents say within their respective countries will happen by the impact of AI in 6 aspect of day to day life. These aspects are the job market, their jobs, their entertainment, their country's economy, their health and medical field, and the amount of time it takes for them to complete tasks. The public perceives AI to have the biggest impact on two aspects of life. These are entertainment options and the timings of their tasks being greatly reduced. Most notably, China and Indonesia expect the greatest impact in their societies by AI. Of the 6 aspects of life percieved to be impacted, health and entertainment seem to be on the low end. This indicates people don't believe that AI will do as much change to those two aspect as it would things like reduction of time to complete tasks and their job markets. Seeing as how the biggest impact would be the economy and their jobs, governments should prioritize policies to give peace of mind for economic stability and possible programs to allow people to either continue their jobs without job insecurity or a way to transition to a position that has AI in mind.
+
+```{r}
+Democrats_Republicans_AI <- csv13 %>%
+ rename(Party_Group = Party, Label = Label, Percent_String = X..of.respondents) %>%
+  filter(Party_Group != "All", Party_Group != "2023", Party_Group != "2022", Party_Group != "Democrats", Party_Group != "Republicans") %>%
+  mutate(Percentage = as.numeric(gsub("%", "", Percent_String))) %>%
+  group_by(Party_Group) %>%
+  mutate(Party_Total_Sum = sum(Percentage), Normalized_Percentage = (Percentage / Party_Total_Sum) * 100, 
+         Label_Ordered = fct_relevel(Label, "Agree", "Neither agree nor disagree", "Disagree")) %>%
+  ungroup() %>%
+  mutate(Party_Group = as.factor(Party_Group), Label_Ordered = as.factor(Label_Ordered)) %>%
+  ggplot(aes(x = Party_Group, y = Normalized_Percentage, fill = Label_Ordered)) +
+  geom_col(color = "white", linewidth = 0.2, position = "stack") +
+  scale_fill_manual(
+    values = c("Agree" = "#8DA4C8", "Neither agree nor disagree" = "#FCB062", "Disagree" = "#E57EAB")) +
+
+  labs(title = "Opinions on use of AI by Politcal parties", x = "Political Party in 2022 & 2023", 
+       y = "Percentage of Respondents", fill = "Response") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"), plot.subtitle = element_text(hjust = 0.5), 
+        axis.text.x = element_text(angle = 45, hjust = 1), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+Democrats_Republicans_AI
+```
+
+- This graph shows opinions by US political parties Democrats and Republicans in both 2022 and 2023 on how they believe if AI should be used or not. The democratic party in 2023 show the largest support behind the use and embrace of AI while the republicans show higher levels of disagreement in the use of AI. Most notably, in 2022, the largest segment of disagreement in its use was by the Republicans. However that amount had dropped by the next year. This could suggest that the party was more initially cautious with AI than the democratic party. As we see over the difference of a year both parties falling more into agreement this could be a tell tale sign that AI will become more politicized and embraced over the coming decades.
+
+```{r}
+response_factor_order <- c("Disagree", "Neither agree nor disagree", "Agree")
+color_mapping <- c("Agree" = "#8DA4C8", "Neither agree nor disagree" = "#FCB062", "Disagree" = "#E57EAB")                  
+
+Policies_related_ai <- csv14 %>%
+  rename(Policy_Name = Policy, Label = Label, Percent_String = X..of.respondents) %>%
+  mutate(Percentage = suppressWarnings(as.numeric(gsub("%", "", Percent_String))), Label = case_when(Label == "Disaagree" ~ "Disagree", TRUE ~ Label)) %>%
+  complete(Policy_Name, Label, fill = list(Percentage = 0)) %>%
+  filter(!is.na(Percentage)) %>%
+  group_by(Policy_Name) %>%
+  mutate(Policy_Total_Sum = sum(Percentage, na.rm = TRUE), Normalized_Percentage = pmax(0, pmin(100, (Percentage / Policy_Total_Sum) * 100)),
+         Agreement_Percent = Normalized_Percentage[Label == "Agree"]) %>%
+  ungroup() %>%
+  mutate(Policy_Name = fct_reorder(Policy_Name, Agreement_Percent), Label_Ordered = factor(Label, levels = response_factor_order))
+
+ggplot(Policies_related_ai, aes(x = Policy_Name, y = Normalized_Percentage, fill = Label_Ordered)) +
+geom_bar(stat = "identity", color = "white", linewidth = 0.2, position = "stack", width = 0.8) +
+scale_fill_manual(values = color_mapping,breaks = response_factor_order) +
+coord_flip() +
+  
+labs(title = "Public Opinion on AI Policy Proposals", x = "Policy Proposal", y = "Percentage of Respondents", fill = "Response") +
+scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+theme_bw() +
+theme(plot.title = element_text(hjust = 0.5, face = "bold"), plot.subtitle = element_text(hjust = 0.5), axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10), legend.position = "bottom")
+```
+
+- The graph above shows a series of policy proposals in the y axis and displays the United State's public's opinions on them. The bar graphs go from blue to grey to red. Blue means they agree with the proposal whilst red means they disagree. Grey means that they are neutral or do not agree or disagree to them. There is a disagree missing from the stronger antitrust policies. This is due to one of the values within the data being not applicable (N/A). The graph shows a large approval for most of the AI policy proposals with proposals like stricter data privacy regulations and retraining for the unemployed being being near unanimous. Some more contested proposals are immigration reform for AI developers as well as law enforcement facial recognition ban as they show the largest standstill in public opinion. On the other hand proposals like universal basic income show the largest amount of disagreement of any policy proposal. The data allows us to perceive that most people are on board with regulations regarding AI rather than direct economic actions. This means that legislative efforts for the public should focus towards finding a regulatory system for the public rather than restructuring the financial system directly.
+
+# Results:
+
+- The analysis method used has us first load 16 separate survey data files and standardized them by adding a Year column. We then merged all 16 data sets horizontally into one master data frame. We did this by using a the generated respondent ids to align the survey files. This ensured all variable names were unique across the merged waves. The final step was to filter the master frame to keep only the columns that has to do with the year variables. This resulted in the wide and clean data set that was ready for visual and exploratory data analysis. In the exploratory data anaylysis i opted for the use of bar graphs to be my primary visual method.
+
+- Bar graphs were chosen as they are very easy to visually understand. They are also very simple graphs which would allow for viewers of the visuals created to easily understand what each graph is saying. This allows for increased understanding of the data while conveying the message the data in the data tables is trying to send.
+
+- My overall findings have yielded that AI or LLMs are not being currently being overused but rather integrated into our way of life. My data and visuals also suggest that there is a large acceptance for AI globally. This acceptance expects changes in economies, jobs, health, entertainment, as well as day to day tasks. However, along with this acceptance, respondents have also strong expressed interests into regulating AI integration and AI data in each of their respective fields. This suggests that AI is not just a temporary trend but it is set to be a staple for humanity as well as a subject of intense ethical and governance discussion. The desire for regulation which concerns data transparency and algorithmic accountability shows that while the public embraces AI’s utility and usefulness, they are also demanding a new social contract of sorts to ensure its integration remains helpful. This regulation however, must also address the risk of cognitive atrophy and over-reliance. As it stands, the convenience of AI threatens humans to be incapable of self autonomy and critical thinking. This is especially true when they are separated from their digital assistants. This fear demands we immediately implement and prioritize educational and societal systems to preserve cognitive independence.
+
+# Conclusion:
+
+- The original primary objective of this project was to determine the true extent of AI reliance in everyday life. As the project went on I also gauged global public opinion on integration. The analysis used survey data and exploratory visuals to identify significant global support for AI integration. Public perceptions of AI's daily impact vary across different countries as well as political demographics in the US. Importantly however, the visual data allows us to perceive that there is a strong public desire for the establishment of regulatory frameworks for AI as well as establishment of AI in our various aspects of society. This supports the idea that AI integration into society is accepted especially if regulations are set in place.
+
+- The analysis faced several constraints as a limitation was the scope of the initial data set. Several of the survey data files contained low amounts of unique usable information which resulted in a significantly decreased capacity of exploratory data analysis and visuals. Furthermore, the approach for understanding my data was restricted to data visualization and interpretation which relied on tools outside of my formal education. Additionally this study focuses on correlation with reliance and public sentiment. This means it does not incorporate any statistical modeling that has predictive accuracy.
+
+- The most impactful direction we could use the results of this project is to address the project's secondary objective. This would be investigating strategies for maintaining personal autonomy in an AI age. I have come to the conclusion of two solutions for the secondary objective: regulatory advancements and systemic societal implementations. The first solution is to use long term models to correlate existing public perception data with specific policy proposals and ethical rulings. These long term models would then be used to guide the development of regulations aimed at protecting users and ensuring human control in AI-driven systems. The second solution is to investigate and propose the implementation of educational and societal systems designed to maintain cognitive independence in an AI-integrated world. This involves studying how to adjust current learning and social structures to foster critical thinking and limit over-reliance on automated tools. Specifically this means proposing a mandatory digital literacy curriculum focused on AI limitations. Additionally, advocating for societal structures that incentivize human only decision making in critical areas like healthcare or legal consultation could result in a passive way to foster critical thinking and greatly reduce or stop cognitive atrophy from the over reliance on these tools.
+
+# References:
+
+- ["Artifical Intelligence Index 2025"](https://hai.stanford.edu/ai-index/2025-ai-index-report)
+
+- ["Google Gemini for troubleshooting"](https://gemini.google.com/app)
+
+- ["R Studio for cheatsheets"](https://posit.co/download/rstudio-desktop/)
+
+- ["Stack Overflow for references"](https://stackoverflow.com/questions/tagged/ggplot2?sort=frequent&pageSize=50)
+
+- ["Youtube for guides"](https://www.youtube.com/)
+
